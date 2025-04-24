@@ -8,6 +8,8 @@ for extracurricular activities at Mergington High School.
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
+from typing import Dict, List
 import os
 from pathlib import Path
 
@@ -77,6 +79,27 @@ activities = {
     }
 }
 
+# User database
+users = {
+    "admin@mergington.edu": {
+        "role": "admin",
+        "permissions": ["manage_users", "manage_activities"]
+    },
+    "teacher@mergington.edu": {
+        "role": "teacher",
+        "permissions": ["manage_activities"]
+    },
+    "student@mergington.edu": {
+        "role": "student",
+        "permissions": []
+    }
+}
+
+class User(BaseModel):
+    email: str
+    role: str
+    permissions: List[str]
+
 
 @app.get("/")
 def root():
@@ -130,3 +153,30 @@ def unregister_from_activity(activity_name: str, email: str):
     # Remove student
     activity["participants"].remove(email)
     return {"message": f"Unregistered {email} from {activity_name}"}
+
+
+@app.get("/users")
+def get_users():
+    """Get all users"""
+    return users
+
+
+@app.post("/users")
+def create_user(user: User):
+    """Create a new user"""
+    if user.email in users:
+        raise HTTPException(status_code=400, detail="User already exists")
+    users[user.email] = {
+        "role": user.role,
+        "permissions": user.permissions
+    }
+    return {"message": f"User {user.email} created successfully"}
+
+
+@app.delete("/users/{email}")
+def delete_user(email: str):
+    """Delete a user"""
+    if email not in users:
+        raise HTTPException(status_code=404, detail="User not found")
+    del users[email]
+    return {"message": f"User {email} deleted successfully"}
